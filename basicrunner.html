@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  	<title>Basic Runner Game</title>
+  </head>
+
+  <body>
+    <div id="score">Score 0</div>
+    <div id="speed">Speed 0</div>
+    <canvas id="runner_board" width="1000" height="300"></canvas>
+
+    <style>
+      #runner_board {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      #score {
+        text-align: center;
+        font-size: 70px;
+      }
+      #speed {
+        text-align: center;
+        font-size: 70px;
+      }
+
+    </style>
+  </body>
+
+  <script>
+    const board_border = 'black';
+    const board_background = "lightgreen";
+    const runner_col = 'lime';
+    const runner_border = 'green';
+    const end_game_border = 'red';
+    const end_game_col = 'black';
+    const obstacle_col = 'chocolate';
+    
+    const POS_DOWN = 0; //down
+    const POS_CENTER = 1; //center
+    const POS_UP = 2; //right
+    let runner_pos = POS_DOWN;
+
+    obstacle_types_list = [0]; // the number of times a type is written ni this list = its relative likelihood of occuring.
+    let most_recently_pressed = POS_DOWN;
+    let obstacles = [];// { x : x_coordinate_of_left_num_ranging_from_0_to_9, ////0 being the left-most, i.e. where the player is, and 9 being the right-most.
+                       //   y : y_coordinate_of_top_num_ranging_from_0_to_2,  ////0 being the bottom, 1 the center, 2 the top.
+                       //   type : num_representing_type}                     ////represent obstacle types. All are deadly. For now type = width.  
+
+    let score = 0;
+    let speed = 1;
+    const runner_board = document.getElementById("runner_board");
+    const runner_board_ctx = runner_board.getContext("2d");
+    main_loop();
+    document.addEventListener("keydown", change_runner_position);
+
+    let tic_num = 0;
+    let collided = false;
+
+    function main_loop() {
+      setTimeout(function onTick() {
+        clean();
+        move_runner();
+        draw_runner();
+        draw_obstacles();
+        check_collision();
+        if(collided){
+          return end_game_message();
+        }
+
+        if(tic_num === 3){
+          move_obstacles_left();
+          generate_new_obstacles();
+          check_collision();
+          if(collided){
+            return end_game_message();
+          }
+          tic_num = 0;
+          score += 1;
+          if(score %10 ===0 && 100 - speed > 65){
+            speed += 1;
+            document.getElementById('speed').innerHTML = "Speed " + speed;
+          }
+          document.getElementById('score').innerHTML = "Score " + score;
+        }
+        else{
+          check_collision();
+          if(collided){
+            return end_game_message();
+          }
+          tic_num +=1;
+        }
+        // Repeat
+        main_loop();
+      }, 101-speed);
+    }
+    
+    function clean() {
+      runner_board_ctx.fillStyle = board_background;
+      runner_board_ctx.strokestyle = board_border;
+      runner_board_ctx.fillRect(0, 0, runner_board.width, runner_board.height);
+      runner_board_ctx.strokeRect(0, 0, runner_board.width, runner_board.height);
+    }
+
+
+    function check_collision(){
+      obstacles.forEach((obst)=> {
+        if(obst.x === 0 && obst.y === runner_pos) collided = true;
+      });
+    }
+
+
+    function move_runner() {
+     runner_pos = most_recently_pressed;
+    }
+
+    function move_obstacles_left(){
+      obstacles = obstacles.map((obst)=> {
+        obst.x = obst.x - 1;
+        return obst;
+      });
+      obstacles = obstacles.filter((obst) => obst.x >= 0);
+    }
+    
+
+    function generate_new_obstacles(){
+      let new_obst_y = Math.floor(Math.random() * 3);
+      let new_type = Math.floor(Math.random() * obstacle_types_list.length);
+      obstacles.push({x:9, y:new_obst_y, type : new_type});
+    }
+
+    function draw_runner(){
+      runner_board_ctx.fillStyle = runner_col;
+      runner_board_ctx.strokestyle = runner_border;
+      runner_board_ctx.fillRect(0, 200 - runner_pos*100, 100, 100);
+      runner_board_ctx.strokeRect(0, 200 - runner_pos*100, 100, 100);
+    }
+
+    function end_game_message(){
+      runner_board_ctx.fillStyle = end_game_border;
+      runner_board_ctx.strokestyle = end_game_col;
+
+      runner_board_ctx.fillRect(150, 110, 700, 80);
+      runner_board_ctx.strokeRect(150,110,700, 80);
+      runner_board_ctx.font = '50px serif';
+      runner_board_ctx.fillStyle = 'black';
+      runner_board_ctx.fillText("You lose!", 400,160,800);
+    }
+
+    function draw_obstacles (){
+      obstacles.forEach((obst)=>{
+        runner_board_ctx.fillStyle = obstacle_col;
+        runner_board_ctx.fillRect(obst.x*100, 200 - obst.y*100,100,100);
+      });
+
+    }
+
+
+    function change_runner_position(event) {
+      // const LEFT_KEY = 37;
+      // const RIGHT_KEY = 39;
+      const UP_KEY = 38;
+      const DOWN_KEY = 40;
+      
+      const keyPressed = event.keyCode;
+
+      if(keyPressed === UP_KEY)  most_recently_pressed = (runner_pos + 1) % 3;
+      else if(keyPressed === DOWN_KEY)   most_recently_pressed = (runner_pos + 2) % 3;
+    }
+    
+  </script>
+</html>
