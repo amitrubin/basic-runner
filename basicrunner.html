@@ -62,8 +62,8 @@
       setTimeout(function onTick() {
         clean();
         move_runner();
-        draw_runner();
         draw_obstacles();
+        draw_runner();
         check_collision();
         if(collided){
           return end_game_message();
