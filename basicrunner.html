@@ -5,8 +5,13 @@
   </head>
 
   <body>
-    <div id="score">Score 0</div>
-    <div id="speed">Speed 0</div>
+    <div id = "top-bar-container">
+      <span id="score">Score 0</span>
+      <span id="speed">Speed 10</span>
+      <span id="lives">❤️</span>
+  <!--   </div>
+      <span id="lives2">&#128156;&#128156;&nbsp;</span>
+   -->  </div>
     <canvas id="runner_board" width="1000" height="300"></canvas>
     <div id="down_b">down</div>
     <div id="up_b">up</div>
@@ -18,14 +23,35 @@
         transform: translate(-50%, -50%);
       }
       #score {
-        text-align: center;
+        float: left;
+        margin-left: 20px;
         font-size: 70px;
       }
       #speed {
-        text-align: center;
+        float: right;
+        font-size: 70px;
+        margin-right: 20px;
+      }
+      #lives {
+        position: fixed;
+
+        left: 50%;
+        right: 50%;
+        float: none;
+        margin-left: 20px;
+        margin-right: 20px;
         font-size: 70px;
       }
+/*      #lives2 {
+        position: fixed;
 
+        left: 50%;
+        right: 50%;
+        float: none;
+        margin-left: 20px;
+        margin-right: 20px;
+        font-size: 70px;
+      }*/
       #down_b {
         text-align: center;
         font-size: 70px;
@@ -65,15 +91,15 @@
     const POS_CENTER = 1; //center
     const POS_UP = 2; //right
     let runner_pos = POS_DOWN;
-
     obstacle_types_list = [0]; // the number of times a type is written ni this list = its relative likelihood of occuring.
     let most_recently_pressed = POS_DOWN;
     let obstacles = [];// { x : x_coordinate_of_left_num_ranging_from_0_to_9, ////0 being the left-most, i.e. where the player is, and 9 being the right-most.
                        //   y : y_coordinate_of_top_num_ranging_from_0_to_2,  ////0 being the bottom, 1 the center, 2 the top.
                        //   type : num_representing_type}                     ////represent obstacle types. All are deadly. For now type = width.  
-
+    let bonuses = [];  // Location is defined in the same way as in obstacles. "plus_life" adds a life (max of 3), using emoji 💓, "plus_score" adds to the score using emoji 🌟.
     let score = 0;
-    let speed = 1;
+    let speed = 10;
+    let lives = 1;//start with 1 to 3
     const runner_board = document.getElementById("runner_board");
     const runner_board_ctx = runner_board.getContext("2d");
     main_loop();
@@ -84,26 +110,23 @@
     down_elem.addEventListener("touchstart", clickdown);
 
     let tic_num = 0;
-    let collided = false;
-
+    let collided_obstacle = false;
+    let collided_bonus = false;
     function main_loop() {
       setTimeout(function onTick() {
         clean();
         move_runner();
         draw_obstacles();
+        draw_bonuses();
         draw_runner();
-        check_collision();
-        if(collided){
-          return end_game_message();
-        }
+        if(handle_collision()) return;
+
 
         if(tic_num === 3){
-          move_obstacles_left();
-          generate_new_obstacles();
-          check_collision();
-          if(collided){
-            return end_game_message();
-          }
+          move_objects_left();
+          generate_new_objects();
+          // generate_new_obstacles();
+          if(handle_collision()) return;
           tic_num = 0;
           score += 1;
           if(score %10 ===0 && 100 - speed > 65){
@@ -113,10 +136,7 @@
           document.getElementById('score').innerHTML = "Score " + score;
         }
         else{
-          check_collision();
-          if(collided){
-            return end_game_message();
-          }
+          if(handle_collision()) return;
           tic_num +=1;
         }
         // Repeat
@@ -134,21 +154,58 @@
 
     function check_collision(){
       obstacles.forEach((obst)=> {
-        if(obst.x === 0 && obst.y === runner_pos) collided = true;
+        if(obst.x === 0 && obst.y === runner_pos) collided_obstacle = true;
+      });
+      bonuses.forEach((bonus)=> {
+        if(bonus.x === 0 && bonus.y === runner_pos) collided_bonus = true;
       });
     }
 
+    function handle_collision(){
+      //returns true if the game is lost.
+      check_collision();
+      if(collided_obstacle){
+        lives -=1;
+        obstacles.shift();
+        collided_obstacle = false;
+        if(lives == 0){
+          end_game_message();
+          return true;
+        }
+        else{
+          draw_lives();
+          return false;
+        }
+      }
+      if(collided_bonus){
+        t = bonuses[0].type;
+        bonuses.shift();
+        collided_bonus = false;
+        if(t == "plus_life"){
+          if(lives < 3){lives += 1;}
+          draw_lives();
+        }
+        else if(t == "plus_score"){
+          score += 20;
+          document.getElementById('score').innerHTML = "Score " + score;
+        }
+      }
+    }
 
     function move_runner() {
      runner_pos = most_recently_pressed;
     }
-
-    function move_obstacles_left(){
+    function move_objects_left(){
       obstacles = obstacles.map((obst)=> {
         obst.x = obst.x - 1;
         return obst;
       });
+      bonuses = bonuses.map((bonus)=> {
+        bonus.x = bonus.x - 1;
+        return bonus;
+      });
       obstacles = obstacles.filter((obst) => obst.x >= 0);
+      bonuses = bonuses.filter((bonus) => bonus.x >= 0);
     }
     
 
@@ -157,15 +214,36 @@
       let new_type = Math.floor(Math.random() * obstacle_types_list.length);
       obstacles.push({x:9, y:new_obst_y, type : new_type});
     }
-
+    function generate_new_objects(){
+      let new_obst_y = Math.floor(Math.random() * 3);
+      let new_type = Math.floor(Math.random() * obstacle_types_list.length);
+      obstacles.push({x:9, y:new_obst_y, type : new_type});
+      if(Math.random() < 0.0069){
+        let new_life_y = (Math.floor(Math.random() * 2) + new_obst_y + 1) % 3;
+        bonuses.push({x:9, y:new_life_y, type : "plus_life"});
+      }
+      else if(Math.random() < 0.02){
+        let new_life_y = (Math.floor(Math.random() * 2) + new_obst_y + 1) % 3;
+        bonuses.push({x:9, y:new_life_y, type : "plus_score"});
+      }
+    }
+    function draw_lives(){
+      if(lives == 1)     {document.getElementById('lives').innerHTML = "❤️";}
+      else if(lives == 2){document.getElementById('lives').innerHTML = "💛";}
+      else if(lives == 3){document.getElementById('lives').innerHTML = "💚";}
+      else throw `Illegal Value: lives = ${lives}`;
+    }
     function draw_runner(){
-      runner_board_ctx.fillStyle = runner_col;
-      runner_board_ctx.strokestyle = runner_border;
+      // runner_board_ctx.fillStyle = runner_col;
+      // runner_board_ctx.strokestyle = runner_border;
+      // runner_board_ctx.fillRect(10, 210 - runner_pos*100, 80, 80);
+      // runner_board_ctx.strokeRect(10, 210 - runner_pos*100, 80, 80);
+      runner_board_ctx.fillStyle = "purple";
       runner_board_ctx.fillRect(10, 210 - runner_pos*100, 80, 80);
-      runner_board_ctx.strokeRect(10, 210 - runner_pos*100, 80, 80);
     }
 
     function end_game_message(){
+      document.getElementById('lives').innerHTML = "💩";
       runner_board_ctx.fillStyle = end_game_border;
       runner_board_ctx.strokestyle = end_game_col;
 
@@ -181,7 +259,18 @@
         runner_board_ctx.fillStyle = obstacle_col;
         runner_board_ctx.fillRect(obst.x*100, 200 - obst.y*100,100,100);
       });
-
+    }
+    function draw_bonuses (){
+      bonuses.forEach((bonus)=>{
+        if(bonus.type == "plus_life"){
+          runner_board_ctx.font = '50px serif';
+          runner_board_ctx.fillText("💓", 19+bonus.x*100,270 - bonus.y*100,60);
+        }
+        else if(bonus.type == "plus_score"){
+          runner_board_ctx.font = '50px serif';
+          runner_board_ctx.fillText("🌟", 19+bonus.x*100,270 - bonus.y*100,60);
+        }
+      });
     }
 
 
